@@ -3,12 +3,8 @@
 
 
 /*
-Workplan; 30/4/19 test change
-1//5/19 test change
-1/5/19 change2, 3rd test change
-7/5/19 test change 1 test change 2 t
-Save SHNW_Tot connecting to github so start clean repo/project and try again.
-Started placing function calls into state machine, and state transitions into functions,
+Workplan; 29/5/19
+Aim placing function calls into state machine, and state transitions into functions,
             incomplete function can be commented back out when incomplete
 test state machine with debug function
 complete and test all functions individually
@@ -83,7 +79,7 @@ char senderNumber[20];                                 // Array to hold the numb
 //#define SERVER3_ADDRESS 4                                       //uncomment when more traps in mesh
 //#define SERVER4_ADDRESS 5
 //#define SERVER5_ADDRESS 6
-int I_am_trap;   //Identify individual radio/trap here for reporting it's own ID
+int I_am_trap;   //Identify individual radio/trap here for reporting it's own ID ****Probably redundant due to server/client addresses above
 int Is_Trap_Armed_Disarmed_Or_Tripped;
 // Singleton instance of the radio driver
 RH_RF22 driver;                               // Singleton instance of the radio driver
@@ -106,6 +102,19 @@ char Trap_is;                                         //there will be 3 options,
 int Battery_Test_Cycle ;                           //     no names defined, just use 0 and 1
 unsigned long Battery_Time;                       // hourly in ms
 
+#define DEBUG //comment out to stop debug messages and save space in Sketch File
+              /* use in conjunction with structures like:
+              #ifdef DEBUG
+              Serial.print(F("pressCounter = "));
+              Serial.print(pressCounter, DEC);
+              #endif
+              OR
+
+              #ifdef DEBUG
+                     Serial.println(F("I just typed 'z' to stop the serial"));
+                     Serial.end();
+              #endif
+              */
 
 //Output integers from DeBug serial
 int deBugByte1;
@@ -175,33 +184,7 @@ void setup() {
                 ; // wait for serial port to connect. Needed for native USB port only
         }
 
-    /*  New SMS /GMS board, need to renew setup for new board
-        Serial.println("SMS Messages Sender");
 
-        // connection state
-        boolean notConnected = true;
-
-        // Start GSM shield
-        // If your SIM has PIN, pass it as a parameter of begin() in quotes
-        while (notConnected) {
-                if (gsmAccess.begin(PINNUMBER) == GSM_READY) {
-                        notConnected = false;
-                } else
-                {
-                        Serial.println("Not connected");
-                        delay(1000);
-                }
-        }
-
-        Serial.println("GSM initialized to send");
-
-
-
-// Additional setup for receive
-        Serial.println("GSM initialized to receive");
-        Serial.println("Waiting for messages");
-
-get help for mesh setup*/
 
 //Setup for door/servo
         Serial.println(F("setup() - Starting DOOR servo."));
@@ -266,7 +249,7 @@ void debug () {                       //type in debug inputs via serial monitor
         case 'd':                           //
                 deBugByte2 = HIGH;          //restore
                 break;
-        case 'e':
+      /*  case 'e':
                 deBugByte3 = LOW;             //mimic ?
 
                 break;
@@ -280,7 +263,7 @@ void debug () {                       //type in debug inputs via serial monitor
 
         case 'h':
                 deBugByte5 = HIGH;                   // restores door to high
-                break;
+                break;    */
 
         case 'z':
                 Serial.println(F("I just typed 'z' to stop the serial"));
