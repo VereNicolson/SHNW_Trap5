@@ -1,19 +1,12 @@
 
-
-
-
 /*
-Workplan; 29/5/19
+
 Aim placing function calls into state machine, and state transitions into functions,
             incomplete function can be commented back out when incomplete
 test state machine with debug function
 complete and test all functions individually
 
 
-FileName--SHNWtrapv1  plan; this project saved at home/vere/Documents/Platformio/projects/SHNWtrapv1
-   Starting with an empty state machine, name states from diagram, borrow useful code from previous
-   projects to manage traps in a mesh with master trap communicating to opperator
-   with SMS
 fnxns
 DeBug    Done  used before, adapt
 DOORs    Done  untested
@@ -22,7 +15,8 @@ Assemble_A_Report_Message  ?
 send text    New GMS board, need to start over
 receive text   New GMS board, need to start over
 Prox Sensors  ****started switches but incomplete.
-incorporate GitHub and learn to use it..just made a meaningful change since master comit
+
+
 PINMAP;;
 A0  dio?                      //voltge ADC from voltage splitter
 A1  IR distance sensor1
@@ -45,26 +39,22 @@ Tx, Tx
 13  =LED  OUTPUT
 
 
-#define RFM95_CS 17  ???
-#define RFM95_RST 21  ???
+
 
  */
 
 #include <Arduino.h>    // so can use platformio, Arduino IDE doesn't mind
-//include stuff for GMS  //New GMS board, so need new includes and declares
- //#include <GSM.h>       // include the GSM library
-//#define PINNUMBER ""        // PIN Number for the SIM
-//GSM gsmAccess;              // initialize the library instances
-//GSM_SMS sms;
+//include stuff for phone board  SMS 7000, so need new includes and declares
 
-//additional includes for SMS receive
+//#define PINNUMBER ""        // PIN Number for the SIM
+
 // Array to hold the number a SMS is retreived from
 char senderNumber[20];                                 // Array to hold the number a SMS is retreived from
 
 //includes for radios
 #define RH_MESH_MAX_MESSAGE_LEN 50
-#include <RHMesh.h>                                                 //Problematic on Arduino OK on Platformio
-#include <RH_RF22.h>                                                //Problematic on Arduino OK on Platformio
+#include <RHMesh.h>                                                 //
+#include <RH_RF22.h>                                                //
 #include <SPI.h>
 
 //include for servo
@@ -81,48 +71,58 @@ char senderNumber[20];                                 // Array to hold the numb
 //#define SERVER5_ADDRESS 6
 int I_am_trap;   //Identify individual radio/trap here for reporting it's own ID ****Probably redundant due to server/client addresses above
 int Is_Trap_Armed_Disarmed_Or_Tripped;
-// Singleton instance of the radio driver
+
 RH_RF22 driver;                               // Singleton instance of the radio driver
-// Class to manage message delivery and receipt, using the driver declared above
-RHMesh manager(driver, CLIENT_ADDRESS);
+
+
+RHMesh manager(driver, CLIENT_ADDRESS);       // Class to manage message delivery and receipt, using the driver declared above
 
 //States
-#define TRAP_is_ARMED 0
-#define CALLED_by_SMS 1
-#define BATTERY_is_LOW 2
-#define TRAP_is_SPRUNG 3
-#define REPORT_to_MESH  4
-#define CALLED_by_MESH  5
-#define REPORTING_by_SMS 6            //only on master=client
-#define TRAP_is_DISARMED 7
+#define TRAP_is_ARMED 0             //Normal trapping activity
+#define CALLED_by_SMS 1             //Client Trap is Processing a message from user via SMS, only on master=client
+#define BATTERY_is_LOW 2            //Low battery will trigger an SMS
+#define TRAP_is_SPRUNG 3            //Trap has had a dual proximity and dropped doors
+#define REPORT_to_MESH  4           //Trap is assembling and sending a LoRa message to mesh
+#define CALLED_by_MESH  5            //Trap is processing a message from the mesh
+#define REPORTING_by_SMS 6            //Client trap is assembling and sending a message to user phone only on master=client
+#define TRAP_is_DISARMED 7            //Trap is in state where (SMS and) radios and battery monitoring work, no sensors or servo
 int STATE_current = TRAP_is_ARMED;                    //basic state
-char Trap_is;                                         //there will be 3 options, Armed, Sprung or Disarmed
+char Trap_is;                                         //simplify to 3 options, Armed, Sprung or Disarmed
 
 //battery test states
 int Battery_Test_Cycle ;                           //     no names defined, just use 0 and 1
-unsigned long Battery_Time;                       // hourly in ms
+unsigned long Battery_Time;                       // hourly in ms for countdown/watchdog
 
 #define DEBUG //comment out to stop debug messages and save space in Sketch File
               /* use in conjunction with structures like:
               #ifdef DEBUG
-              Serial.print(F("pressCounter = "));
-              Serial.print(pressCounter, DEC);
+              Serial.print(F("variable name"));       //to confirm progress through code on serial monitor
+              Serial.print(current variable value);   //to confirm progress through code on serial monitor
               #endif
+
               OR
 
               #ifdef DEBUG
-                     Serial.println(F("I just typed 'z' to stop the serial"));
-                     Serial.end();
+                     Serial.println(F("I just typed 'z' to stop the serial"));   //to confirm progress through code on serial monitor
+                     Serial.end();                                               //Ends serial output leaving output of screen and savable/copiable for study
               #endif
               */
 
 //Output integers from DeBug serial
-int deBugByte1;
+int deBugByte1;                                                       //
 int deBugByte2;
 int deBugByte3;
 int deBugByte4;
 int deBugByte5;
 int debugByte;
+/* Use like this:
+#ifdef DEBUG                                                  // place this structure between the reading of a sensor and the relevant if statement
+                  actualVariable = deBugByte1 ;                //You give deBugByte a value by typing a letter on keyboard, that manipulates the if statement outcome
+                                                              //observe outcome or get a serial monitor output
+#endif
+
+
+*/
 
 
 //defines and includes, DOOR_states
@@ -142,11 +142,10 @@ int DOOR_Reset_Angle = 1600;
 
 //Voltage measurements
 int analogVolt ;                                           //analog response from pinA0
-
-float Volts = 0.0;                   // multiply analog by voltage split ratio, then multiply by 5/1023 for volts
+float Volts = 0.0;                   // multiply analog by voltage split ratio, then multiply by 5/1023 for volts, modify as required for accuracy
 
 //SMS stuff
-char Make_trap;                                         // there will be  3(4) options, Armed, Disarmed, Report_all (and maybe report[I_am_trap
+char Make_trap;                                         // Read this char from message to transition machine state
 
 #define Proximity_Detection  10                          //two cases of sub switch inside "trap is armed" to cycle routines while trap armed
 #define SMS_Monitoring      11                          //two cases of sub switch inside "trap is armed" to cycle routines while trap armed
@@ -368,19 +367,18 @@ void Watch_Two_proximity_Sensors(){                           // first of 3 fnxn
 Is_Trap_Armed_Disarmed_Or_Tripped = 0 ;
     int Sensor_One_Val;
     int Sensor_Two_Val;
-  int Threshhold_Proximity = 500;  //Local var for proximity threshhold. Start point 500, find best impirical value
+  int Threshhold_Proximity = 500;  //Local var for proximity threshhold. Start point 500, find best empirical value
 
 
   switch (Prox_Sensor_Watch) {                      // a switch to cycle through reading the proximity sensors
 
     case  CHECK_FIRST_SENSOR:       //label 0:
-Sensor_One_Val = analogRead (Sensor_One_Pin);
-if (Sensor_One_Val > Threshhold_Proximity) {
+Sensor_One_Val = analogRead (Sensor_One_Pin);                       //reads current value once
+if (Sensor_One_Val > Threshhold_Proximity) {                        // compares with threshhold
   Prox_Sensor_Watch = CHECK_SECOND_SENSOR;                         // only check second sensor if first finds something
 }
 else{
-  Prox_Sensor_Watch = CHECK_FIRST_SENSOR;                           //
-
+  Prox_Sensor_Watch = CHECK_FIRST_SENSOR;                          //
 }
 
     break;
@@ -393,7 +391,7 @@ STATE_current = TRAP_is_SPRUNG ;
 }
 else{
   Prox_Sensor_Watch = CHECK_FIRST_SENSOR;                           //
-  //Receive_SMS();
+
 }
 
   break;
@@ -407,11 +405,13 @@ void Battery_Check(){
 
         switch (Battery_Test_Cycle) {
           case 0:
-          if (millis() - Battery_Time  > 3600000) {                //check if the hour is up
+          if (millis() - Battery_Time  > 3600000) {                //check if the hour is up Where is this first set?? setup?
           Battery_Test_Cycle = 1;
         }
               break;;
-          case 1:
+          case 1:                                     //only enters this case for 1 loop every hour
+      //turn on a pin to enable read                // need to switch on a connection to voltage splitter just long enough to reads
+                                                              //this will require another output pin for ? SS relay?
         analogVolt = analogRead(Volt_Pin);                       //updates the voltage
         Battery_Test_Cycle = 0;                         //having done reading, return to case 0 wich counts down another hour
         Battery_Time = millis ();               //reset each hour one commited to case transition
@@ -520,7 +520,7 @@ void loop() {
 
         switch (Cycle_Though_Sensor_Checks) {              // sub switch to cycle routines while trap armed
 
-break;
+//break;                                                    //Build with or without this "break" but looks wrong here.
         case Proximity_Detection:     //label 10           //check IR distance sensors
          Watch_Two_proximity_Sensors();
 Cycle_Though_Sensor_Checks = 11;
